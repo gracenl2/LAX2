@@ -5,6 +5,15 @@ require('dotenv').config(); // Loads environment variables (e.g., API keys, port
 
 const app = express();
 
+// Connect to MongoDB (Local or Atlas)
+const mongoose = require('mongoose');
+mongoose.connect('mongodb://localhost:27017/sealevelapp', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
+
 // Middleware setup
 // - CORS allows frontend requests from different domains (important if frontend is hosted separately).
 // - JSON middleware allows API to handle JSON payloads in requests.
