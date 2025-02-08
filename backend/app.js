@@ -7,11 +7,14 @@ const app = express();
 
 // Connect to MongoDB (Local or Atlas)
 const mongoose = require('mongoose');
-mongoose.connect('mongodb://localhost:27017/sealevelapp', {
+require('dotenv').config();  // Load environment variables
+
+// Connect to MongoDB (Atlas)
+mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
-    .then(() => console.log('✅ Connected to MongoDB'))
+    .then(() => console.log('✅ Connected to MongoDB Atlas'))
     .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Middleware setup
@@ -22,10 +25,12 @@ app.use(express.json());
 
 // Import route modules to organize API logic
 // - Each module handles a specific feature (sea level data, maps, weather).
-const seaLevelRoutes = require('./routes/seaLevelRoutes');
 const mapRoutes = require('./routes/mapRoutes');
 const weatherRoutes = require('./routes/weatherRoutes');
+const seaLevelRoutes = require('./routes/seaLevelRoutes');
 
+app.use('/api/weather', weatherRoutes);
+app.use('/api/sealevel', seaLevelRoutes);
 // Define API endpoints for different features
 // - These routes structure the API to be modular and scalable.
 app.use('/api/sealevel', seaLevelRoutes); // Manages sea level-related API requests
@@ -41,6 +46,25 @@ const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
     res.send("✅ API is running");
 });
+
+
+const Location = require('./models/Location');  // Import model
+
+// API Route to store a new location in MongoDB
+app.post('/api/location', async (req, res) => {
+    const { name, latitude, longitude, seaLevel, riskLevel } = req.body;
+    const newLocation = new Location({ name, latitude, longitude, seaLevel, riskLevel });
+    await newLocation.save();
+    res.json({ message: "Location saved!", data: newLocation });
+});
+
+// API Route to fetch all locations from MongoDB
+app.get('/api/location', async (req, res) => {
+    const locations = await Location.find();
+    res.json(locations);
+});
+
+
 
 // Start the server and listen for incoming requests
 // - This makes the backend available to handle API calls from the frontend.

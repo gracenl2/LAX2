@@ -3,18 +3,21 @@ const axios = require('axios');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-    const { location } = req.query;
-    if (!location) return res.status(400).json({ error: "Location required" });
+    const { lat, lng } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: "Latitude and longitude are required" });
 
     try {
-        const response = await axios.get(`https://api.sealevels.org/current?location=${location}&key=${process.env.NOAA_API_KEY}`);
+        const url = `https://api.stormglass.io/v2/tide/extremes/point?lat=${lat}&lng=${lng}&start=now&end=now`;
+        const headers = { headers: { 'Authorization': process.env.STORMGLASS_API_KEY } };
+        const response = await axios.get(url, headers);
+
         res.json({
-            location,
-            seaLevel: response.data.sea_level,
-            riskLevel: response.data.sea_level > 2 ? "High" : "Normal"
+            location: { latitude: lat, longitude: lng },
+            tides: response.data.extremes
         });
+
     } catch (error) {
-        res.status(500).json({ error: "Failed to fetch sea level data" });
+        res.status(500).json({ error: "❌ Failed to fetch sea level data" });
     }
 });
 
