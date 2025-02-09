@@ -1,71 +1,50 @@
-// Import core dependencies
-const express = require('express'); // Backend framework for handling requests
-const cors = require('cors'); // Allows the frontend to communicate with the backend from different origins
-require('dotenv').config(); // Loads environment variables (e.g., API keys, port) from a .env file
+// app.js
+// Main entry point for the sea level backend service.
+// This file configures the Express server, connects to MongoDB,
+// sets up middleware, initializes Socket.io for live updates, and mounts our API routes.
+
+require('dotenv').config(); // Loads environment variables from .env
+
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const mongoose = require('mongoose');
+const seaLevelRoutes = require('./routes/seaLevelRoutes');
 
 const app = express();
+const server = http.createServer(app);
 
-// Connect to MongoDB (Local or Atlas)
-const mongoose = require('mongoose');
-require('dotenv').config();  // Load environment variables
+// Initialize Socket.io for real-time subscriptions.
+// (In production, adjust CORS settings as needed.)
+const io = socketIo(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
-// Connect to MongoDB (Atlas)
-mongoose.connect(process.env.MONGO_URI, {
+// Connect to MongoDB using the connection string from .env
+mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
-    .then(() => console.log('✅ Connected to MongoDB Atlas'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+    .then(() => console.log('Connected to MongoDB'))
+    .catch((err) => console.error('MongoDB connection error:', err));
 
-// Middleware setup
-// - CORS allows frontend requests from different domains (important if frontend is hosted separately).
-// - JSON middleware allows API to handle JSON payloads in requests.
-app.use(cors());
+// Middleware to parse JSON bodies from incoming requests
 app.use(express.json());
 
-// Import route modules to organize API logic
-// - Each module handles a specific feature (sea level data, maps, weather).
-const mapRoutes = require('./routes/mapRoutes');
-const weatherRoutes = require('./routes/weatherRoutes');
-const seaLevelRoutes = require('./routes/seaLevelRoutes');
-
-app.use('/api/weather', weatherRoutes);
-app.use('/api/sealevel', seaLevelRoutes);
-// Define API endpoints for different features
-// - These routes structure the API to be modular and scalable.
-app.use('/api/sealevel', seaLevelRoutes); // Manages sea level-related API requests
-app.use('/api/route', mapRoutes); // Handles route planning and Google Maps integration
-app.use('/api/weather', weatherRoutes); // Provides weather data for relevant locations
-
-// Set the server port (uses environment variable if available, defaults to 5000)
-// - This ensures flexibility when deploying the API on different platforms.
-const PORT = process.env.PORT || 5000;
-
-// Basic health check route to confirm the API is running
-// - Useful for debugging and deployment checks.
-app.get('/', (req, res) => {
-    res.send("✅ API is running");
+// Attach the Socket.io instance to every request so that route handlers can emit events.
+app.use((req, res, next) => {
+    req.io = io;
+    next();
 });
 
+// Mount the sea level API endpoints under /api/sea-level
+app.use('/api/sea-level', seaLevelRoutes);
 
-const Location = require('./models/Location');  // Import model
-
-// API Route to store a new location in MongoDB
-app.post('/api/location', async (req, res) => {
-    const { name, latitude, longitude, seaLevel, riskLevel } = req.body;
-    const newLocation = new Location({ name, latitude, longitude, seaLevel, riskLevel });
-    await newLocation.save();
-    res.json({ message: "Location saved!", data: newLocation });
+// Start the server on the port specified in .env (or default to 3000)
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
-
-// API Route to fetch all locations from MongoDB
-app.get('/api/location', async (req, res) => {
-    const locations = await Location.find();
-    res.json(locations);
-});
-
-
-
-// Start the server and listen for incoming requests
-// - This makes the backend available to handle API calls from the frontend.
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
